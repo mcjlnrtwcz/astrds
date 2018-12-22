@@ -1,5 +1,5 @@
 extern crate ggez;
-use ggez::graphics::Point2;
+use ggez::graphics::{DrawMode, Point2};
 use ggez::*;
 use rand::Rng;
 
@@ -11,6 +11,10 @@ struct MainState {
     width: u32,
     height: u32,
     stars: BackgroundStars,
+    ship_size: f32,
+    ship_velocity: f32,
+    ship_xpos: f32,
+    ship_ypos: f32,
 }
 
 impl MainState {
@@ -42,12 +46,31 @@ impl MainState {
             width: width,
             height: height,
             stars: MainState::generate_stars(width, height),
+            ship_size: 30.0,
+            ship_velocity: 8.0,
+            ship_xpos: 0.0,
+            ship_ypos: height as f32 - 30.0 * 2.0,
         };
         Ok(state)
     }
 }
 
 impl event::EventHandler for MainState {
+    fn key_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        keycode: event::Keycode,
+        _keymod: event::Mod,
+        _repeat: bool,
+    ) {
+        // Move ship
+        if keycode == event::Keycode::Right && self.ship_xpos < self.width as f32 - self.ship_size {
+            self.ship_xpos += self.ship_velocity;
+        } else if keycode == event::Keycode::Left && self.ship_xpos > 0.0 {
+            self.ship_xpos -= self.ship_velocity;
+        }
+    }
+
     fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
         Ok(())
     }
@@ -55,6 +78,17 @@ impl event::EventHandler for MainState {
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
         graphics::points(ctx, self.move_stars(self.width, self.height), 1.0)?;
+        // Draw ship
+        graphics::rectangle(
+            ctx,
+            DrawMode::Fill,
+            graphics::Rect::new(
+                self.ship_xpos,
+                self.ship_ypos,
+                self.ship_size,
+                self.ship_size,
+            ),
+        )?;
         graphics::present(ctx);
         Ok(())
     }
