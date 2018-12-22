@@ -1,13 +1,48 @@
 extern crate ggez;
-use ggez::graphics::DrawMode;
+use ggez::graphics::Point2;
 use ggez::*;
 use rand::Rng;
 
-struct MainState {}
+const BACKGROUND_STARS_NUM: usize = 100;
+
+type BackgroundStars = [Point2; BACKGROUND_STARS_NUM];
+
+struct MainState {
+    width: u32,
+    height: u32,
+    stars: BackgroundStars,
+}
 
 impl MainState {
-    fn new(_ctx: &mut Context) -> GameResult<MainState> {
-        let state = MainState {};
+    fn generate_stars(width: u32, height: u32) -> BackgroundStars {
+        let mut stars = [Point2::new(0.0, 0.0); BACKGROUND_STARS_NUM];
+        for i in 0..100 {
+            // TODO: Stars proximity
+            stars[i].x = rand::thread_rng().gen_range(0.0, width as f32);
+            stars[i].y = rand::thread_rng().gen_range(0.0, height as f32);
+        }
+        stars
+    }
+
+    fn move_stars(&mut self, width: u32, height: u32) -> &BackgroundStars {
+        for star in self.stars.iter_mut() {
+            if star.y >= height as f32 {
+                star.x = rand::thread_rng().gen_range(0.0, width as f32);
+                star.y = 0.0;
+            } else {
+                star.y += 1.0;
+            }
+        }
+        &self.stars
+    }
+
+    fn new(ctx: &mut Context) -> GameResult<MainState> {
+        let (width, height) = graphics::get_size(ctx);
+        let state = MainState {
+            width: width,
+            height: height,
+            stars: MainState::generate_stars(width, height),
+        };
         Ok(state)
     }
 }
@@ -19,12 +54,7 @@ impl event::EventHandler for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
-        let mut rect = graphics::Rect::one();
-        for _i in 0..10 {
-            rect.x = rand::thread_rng().gen_range(0.0, 800.0);
-            rect.y = rand::thread_rng().gen_range(0.0, 600.0);
-            graphics::rectangle(ctx, DrawMode::Fill, rect)?;
-        }
+        graphics::points(ctx, self.move_stars(self.width, self.height), 1.0)?;
         graphics::present(ctx);
         Ok(())
     }
