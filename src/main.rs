@@ -7,14 +7,49 @@ const BACKGROUND_STARS_NUM: usize = 100;
 
 type BackgroundStars = [Point2; BACKGROUND_STARS_NUM];
 
+struct Missile {
+    xpos: f32,
+    ypos: f32,
+    width: f32,
+    height: f32,
+}
+
+impl Missile {
+    fn new(ship_xpos: f32, ship_ypos: f32, ship_size: f32) -> Missile {
+        Missile {
+            xpos: ship_xpos + ship_size / 2.0 - 10.0 / 2.0,
+            ypos: ship_ypos - 40.0,
+            width: 10.0,
+            height: 40.0
+        }
+    }
+}
+
+struct Ship {
+    size: f32,
+    velocity: f32,
+    xpos: f32,
+    ypos: f32,
+}
+
+impl Ship {
+    fn new(size: f32, velocity: f32, screen_height: f32) -> Ship {
+        Ship {
+            size: size,
+            velocity: velocity,
+            xpos: 0.0,
+            ypos: screen_height - size * 2.0
+        }
+    }
+}
+
 struct MainState {
     width: u32,
     height: u32,
     stars: BackgroundStars,
-    ship_size: f32,
-    ship_velocity: f32,
-    ship_xpos: f32,
-    ship_ypos: f32,
+    ship: Ship,
+    missiles: Vec<Missile>,
+    missiles_to_delete: Vec<usize>
 }
 
 impl MainState {
@@ -46,10 +81,9 @@ impl MainState {
             width: width,
             height: height,
             stars: MainState::generate_stars(width, height),
-            ship_size: 30.0,
-            ship_velocity: 8.0,
-            ship_xpos: 0.0,
-            ship_ypos: height as f32 - 30.0 * 2.0,
+            ship: Ship::new(30.0, 8.0, height as f32),
+            missiles: Vec::new(),
+            missiles_to_delete: Vec::new()
         };
         Ok(state)
     }
@@ -64,10 +98,15 @@ impl event::EventHandler for MainState {
         _repeat: bool,
     ) {
         // Move ship
-        if keycode == event::Keycode::Right && self.ship_xpos < self.width as f32 - self.ship_size {
-            self.ship_xpos += self.ship_velocity;
-        } else if keycode == event::Keycode::Left && self.ship_xpos > 0.0 {
-            self.ship_xpos -= self.ship_velocity;
+        if keycode == event::Keycode::Right && self.ship.xpos < self.width as f32 - self.ship.size {
+            self.ship.xpos += self.ship.velocity; // TODO: As Ship's method
+        } else if keycode == event::Keycode::Left && self.ship.xpos > 0.0 {
+            self.ship.xpos -= self.ship.velocity; // TODO: As Ship's method
+        } else if keycode == event::Keycode::Space {
+            // Shoot
+            self.missiles.push(
+                Missile::new(self.ship.xpos, self.ship.ypos, self.ship.size)
+            );
         }
     }
 
@@ -83,12 +122,35 @@ impl event::EventHandler for MainState {
             ctx,
             DrawMode::Fill,
             graphics::Rect::new(
-                self.ship_xpos,
-                self.ship_ypos,
-                self.ship_size,
-                self.ship_size,
-            ),
+                self.ship.xpos,
+                self.ship.ypos,
+                self.ship.size,
+                self.ship.size,
+            )
         )?;
+        // Draw missiles
+        for (i, missile) in self.missiles.iter_mut().enumerate() {
+            missile.ypos -= 3.0;
+            if missile.ypos > - missile.height {
+                graphics::rectangle(
+                    ctx,
+                    DrawMode::Fill,
+                    graphics::Rect::new(
+                        missile.xpos,
+                        missile.ypos,
+                        missile.width,
+                        missile.height
+                    )
+                )?;
+            } else {
+                self.missiles_to_delete.push(i);
+            }
+        }
+        // Delete invisible missiles
+        for missile_idx in self.missiles_to_delete.iter() {
+            self.missiles.remove(*missile_idx);
+        }
+        self.missiles_to_delete.clear();
         graphics::present(ctx);
         Ok(())
     }
