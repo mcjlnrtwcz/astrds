@@ -2,48 +2,19 @@ extern crate ggez;
 use ggez::graphics::{DrawMode, Point2};
 use ggez::*;
 use rand::Rng;
+mod entities;
 
 const BACKGROUND_STARS_NUM: usize = 100;
 
 type BackgroundStars = [Point2; BACKGROUND_STARS_NUM];
 
-struct Missile {
-    rect: graphics::Rect,
-}
-
-impl Missile {
-    fn new(ship_x: f32, ship_y: f32, ship_size: f32) -> Missile {
-        Missile {
-            rect: graphics::Rect::new(
-                ship_x + ship_size / 2.0 - 10.0 / 2.0,
-                ship_y - 40.0,
-                10.0,
-                40.0,
-            ),
-        }
-    }
-}
-
-struct Ship {
-    rect: graphics::Rect,
-    velocity: f32,
-}
-
-impl Ship {
-    fn new(size: f32, velocity: f32, screen_height: f32) -> Ship {
-        Ship {
-            rect: graphics::Rect::new(0.0, screen_height - size * 2.0, size, size),
-            velocity: velocity,
-        }
-    }
-}
-
 struct MainState {
     width: u32,
     height: u32,
     stars: BackgroundStars,
-    ship: Ship,
-    missiles: Vec<Missile>,
+    ship: entities::Ship,
+    missiles: Vec<entities::Missile>,
+    asteroids: Vec<entities::Asteroid>,
 }
 
 impl MainState {
@@ -57,16 +28,14 @@ impl MainState {
         stars
     }
 
-    fn move_stars(&mut self, width: u32, height: u32) -> &BackgroundStars {
-        for star in self.stars.iter_mut() {
-            if star.y >= height as f32 {
-                star.x = rand::thread_rng().gen_range(0.0, width as f32);
-                star.y = 0.0;
-            } else {
-                star.y += 1.0;
-            }
+    fn generate_asteroids(width: u32, height: u32) -> Vec<entities::Asteroid> {
+        let mut asteroids: Vec<entities::Asteroid> = Vec::new();
+        for _i in 0..10 {
+            let x = rand::thread_rng().gen_range(0.0, width as f32);
+            let y = rand::thread_rng().gen_range(0.0, (height as f32) / 2.0);
+            asteroids.push(entities::Asteroid::new(x, y));
         }
-        &self.stars
+        asteroids
     }
 
     fn new(ctx: &mut Context) -> GameResult<MainState> {
@@ -75,10 +44,36 @@ impl MainState {
             width: width,
             height: height,
             stars: MainState::generate_stars(width, height),
-            ship: Ship::new(30.0, 8.0, height as f32),
+            ship: entities::Ship::new(30.0, 8.0, height as f32),
             missiles: Vec::new(),
+            asteroids: MainState::generate_asteroids(width, height),
         };
         Ok(state)
+    }
+
+    fn move_stars(&mut self) {
+        for star in self.stars.iter_mut() {
+            if star.y >= self.height as f32 {
+                star.x = rand::thread_rng().gen_range(0.0, self.width as f32);
+                star.y = 0.0;
+            } else {
+                star.y += 0.5;
+            }
+        }
+    }
+
+    fn move_missiles(&mut self) {
+        self.missiles
+            .iter_mut()
+            .for_each(|missile| missile.rect.y -= 3.0);
+        self.missiles
+            .retain(|missile| missile.rect.y > -missile.rect.h);
+    }
+
+    fn move_asteroids(&mut self) {
+        for asteroid in self.asteroids.iter_mut() {
+            asteroid.rect.y += 1.0;
+        }
     }
 }
 
@@ -99,7 +94,7 @@ impl event::EventHandler for MainState {
             self.ship.rect.x -= self.ship.velocity; // TODO: As Ship's method
         } else if keycode == event::Keycode::Space {
             // Shoot
-            self.missiles.push(Missile::new(
+            self.missiles.push(entities::Missile::new(
                 self.ship.rect.x,
                 self.ship.rect.y,
                 self.ship.rect.w,
@@ -113,18 +108,30 @@ impl event::EventHandler for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
-        graphics::points(ctx, self.move_stars(self.width, self.height), 1.0)?;
+
+        // Draw stars
+        graphics::set_color(ctx, graphics::Color::from_rgb(255, 255, 255))?;
+        self.move_stars();
+        graphics::points(ctx, &self.stars, 1.0)?;
+
         // Draw ship
+        graphics::set_color(ctx, graphics::Color::from_rgb(236, 239, 241))?;
         graphics::rectangle(ctx, DrawMode::Fill, self.ship.rect)?;
+
         // Move missiles, delete invisible missiles
-        self.missiles
-            .iter_mut()
-            .for_each(|missile| missile.rect.y -= 3.0);
-        self.missiles
-            .retain(|missile| missile.rect.y > -missile.rect.h);
+        graphics::set_color(ctx, graphics::Color::from_rgb(216, 27, 96))?;
+        self.move_missiles();
         for missile in self.missiles.iter() {
             graphics::rectangle(ctx, DrawMode::Fill, missile.rect)?;
         }
+
+        // Draw asteroids
+        graphics::set_color(ctx, graphics::Color::from_rgb(78, 52, 46))?;
+        self.move_asteroids();
+        for asteroid in self.asteroids.iter() {
+            graphics::rectangle(ctx, DrawMode::Fill, asteroid.rect)?;
+        }
+
         graphics::present(ctx);
         Ok(())
     }
