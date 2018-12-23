@@ -7,6 +7,10 @@ const BACKGROUND_STARS_NUM: usize = 100;
 
 type BackgroundStars = [Point2; BACKGROUND_STARS_NUM];
 
+trait Drawable {
+    fn get_rect(&self) -> graphics::Rect;
+}
+
 struct Missile {
     xpos: f32,
     ypos: f32,
@@ -25,11 +29,22 @@ impl Missile {
     }
 }
 
+impl Drawable for Missile{
+    fn get_rect(&self) -> graphics::Rect {
+        graphics::Rect::new(
+            self.xpos,
+            self.ypos,
+            self.width,
+            self.height,
+        )
+    }
+}
+
 struct Ship {
-    size: f32,
-    velocity: f32,
     xpos: f32,
     ypos: f32,
+    size: f32,
+    velocity: f32,
 }
 
 impl Ship {
@@ -43,13 +58,23 @@ impl Ship {
     }
 }
 
+impl Drawable for Ship {
+    fn get_rect(&self) -> graphics::Rect {
+        graphics::Rect::new(
+            self.xpos,
+            self.ypos,
+            self.size,
+            self.size,
+        )
+    }
+}
+
 struct MainState {
     width: u32,
     height: u32,
     stars: BackgroundStars,
     ship: Ship,
     missiles: Vec<Missile>,
-    missiles_to_delete: Vec<usize>
 }
 
 impl MainState {
@@ -83,7 +108,6 @@ impl MainState {
             stars: MainState::generate_stars(width, height),
             ship: Ship::new(30.0, 8.0, height as f32),
             missiles: Vec::new(),
-            missiles_to_delete: Vec::new()
         };
         Ok(state)
     }
@@ -118,39 +142,13 @@ impl event::EventHandler for MainState {
         graphics::clear(ctx);
         graphics::points(ctx, self.move_stars(self.width, self.height), 1.0)?;
         // Draw ship
-        graphics::rectangle(
-            ctx,
-            DrawMode::Fill,
-            graphics::Rect::new(
-                self.ship.xpos,
-                self.ship.ypos,
-                self.ship.size,
-                self.ship.size,
-            )
-        )?;
-        // Draw missiles
-        for (i, missile) in self.missiles.iter_mut().enumerate() {
-            missile.ypos -= 3.0;
-            if missile.ypos > - missile.height {
-                graphics::rectangle(
-                    ctx,
-                    DrawMode::Fill,
-                    graphics::Rect::new(
-                        missile.xpos,
-                        missile.ypos,
-                        missile.width,
-                        missile.height
-                    )
-                )?;
-            } else {
-                self.missiles_to_delete.push(i);
-            }
+        graphics::rectangle(ctx, DrawMode::Fill, self.ship.get_rect())?;
+        // Move missiles, delete invisible missiles
+        self.missiles.iter_mut().for_each(|missile| missile.ypos -= 3.0);
+        self.missiles.retain(|missile| missile.ypos > - missile.height);
+        for missile in self.missiles.iter() {
+            graphics::rectangle(ctx, DrawMode::Fill, missile.get_rect())?;
         }
-        // Delete invisible missiles
-        for missile_idx in self.missiles_to_delete.iter() {
-            self.missiles.remove(*missile_idx);
-        }
-        self.missiles_to_delete.clear();
         graphics::present(ctx);
         Ok(())
     }
