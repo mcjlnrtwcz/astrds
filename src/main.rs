@@ -9,8 +9,8 @@ const BACKGROUND_STARS_NUM: usize = 100;
 type BackgroundStars = [Point2; BACKGROUND_STARS_NUM];
 
 struct MainState {
-    width: u32,
-    height: u32,
+    width: f32,
+    height: f32,
     stars: BackgroundStars,
     ship: entities::Ship,
     missiles: Vec<entities::Missile>,
@@ -19,25 +19,25 @@ struct MainState {
 }
 
 impl MainState {
-    fn generate_stars(screen_width: u32, screen_height: u32) -> BackgroundStars {
+    fn generate_initial_stars(screen_width: f32, screen_height: f32) -> BackgroundStars {
         let mut stars = [Point2::new(0.0, 0.0); BACKGROUND_STARS_NUM];
         for i in 0..100 {
             // TODO: Stars proximity
-            stars[i].x = rand::thread_rng().gen_range(0.0, screen_width as f32);
-            stars[i].y = rand::thread_rng().gen_range(0.0, screen_height as f32);
+            stars[i].x = rand::thread_rng().gen_range(0.0, screen_width);
+            stars[i].y = rand::thread_rng().gen_range(0.0, screen_height);
         }
         stars
     }
 
     fn generate_initial_asteroids(
-        screen_width: u32,
-        screen_height: u32,
+        screen_width: f32,
+        screen_height: f32,
         number: usize,
     ) -> Vec<entities::Asteroid> {
         let mut asteroids: Vec<entities::Asteroid> = Vec::new();
         for _i in 0..number {
-            let x = rand::thread_rng().gen_range(0.0, screen_width as f32);
-            let y = rand::thread_rng().gen_range(0.0, (screen_height as f32) / 2.0);
+            let x = rand::thread_rng().gen_range(0.0, screen_width);
+            let y = rand::thread_rng().gen_range(0.0, (screen_height) / 2.0);
             asteroids.push(entities::Asteroid::new(x, y));
         }
         asteroids
@@ -46,7 +46,7 @@ impl MainState {
     fn generate_asteroids(&self, number: usize) -> Vec<entities::Asteroid> {
         let mut asteroids: Vec<entities::Asteroid> = Vec::new();
         for _i in 0..number {
-            let x = rand::thread_rng().gen_range(0.0, self.width as f32);
+            let x = rand::thread_rng().gen_range(0.0, self.width);
             let y = 0.0;
             asteroids.push(entities::Asteroid::new(x, y));
         }
@@ -55,11 +55,13 @@ impl MainState {
 
     fn new(ctx: &mut Context) -> GameResult<MainState> {
         let (width, height) = graphics::get_size(ctx);
+        let width = width as f32;
+        let height = height as f32;
         let state = MainState {
             width: width,
             height: height,
-            stars: MainState::generate_stars(width, height),
-            ship: entities::Ship::new(30.0, 8.0, height as f32),
+            stars: MainState::generate_initial_stars(width, height),
+            ship: entities::Ship::new(30.0, 8.0, height),
             missiles: Vec::new(),
             asteroids: MainState::generate_initial_asteroids(width, height, 10),
             asteroids_generated_at: 0,
@@ -69,8 +71,8 @@ impl MainState {
 
     fn move_stars(&mut self) {
         for star in self.stars.iter_mut() {
-            if star.y >= self.height as f32 {
-                star.x = rand::thread_rng().gen_range(0.0, self.width as f32);
+            if star.y >= self.height {
+                star.x = rand::thread_rng().gen_range(0.0, self.width);
                 star.y = 0.0;
             } else {
                 star.y += 0.5;
@@ -91,8 +93,7 @@ impl MainState {
             .iter_mut()
             .for_each(|asteroid| asteroid.rect.y += 1.0);
         let height = self.height;
-        self.asteroids
-            .retain(|asteroid| asteroid.rect.y < height as f32);
+        self.asteroids.retain(|asteroid| asteroid.rect.y < height);
     }
 }
 
@@ -105,9 +106,7 @@ impl event::EventHandler for MainState {
         _repeat: bool,
     ) {
         // Move ship
-        if keycode == event::Keycode::Right
-            && self.ship.rect.x < self.width as f32 - self.ship.rect.w
-        {
+        if keycode == event::Keycode::Right && self.ship.rect.x < self.width - self.ship.rect.w {
             self.ship.rect.x += self.ship.velocity; // TODO: As Ship's method
         } else if keycode == event::Keycode::Left && self.ship.rect.x > 0.0 {
             self.ship.rect.x -= self.ship.velocity; // TODO: As Ship's method
