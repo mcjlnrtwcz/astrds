@@ -15,24 +15,39 @@ struct MainState {
     ship: entities::Ship,
     missiles: Vec<entities::Missile>,
     asteroids: Vec<entities::Asteroid>,
+    asteroids_generated_at: usize,
 }
 
 impl MainState {
-    fn generate_stars(width: u32, height: u32) -> BackgroundStars {
+    fn generate_stars(screen_width: u32, screen_height: u32) -> BackgroundStars {
         let mut stars = [Point2::new(0.0, 0.0); BACKGROUND_STARS_NUM];
         for i in 0..100 {
             // TODO: Stars proximity
-            stars[i].x = rand::thread_rng().gen_range(0.0, width as f32);
-            stars[i].y = rand::thread_rng().gen_range(0.0, height as f32);
+            stars[i].x = rand::thread_rng().gen_range(0.0, screen_width as f32);
+            stars[i].y = rand::thread_rng().gen_range(0.0, screen_height as f32);
         }
         stars
     }
 
-    fn generate_asteroids(width: u32, height: u32) -> Vec<entities::Asteroid> {
+    fn generate_initial_asteroids(
+        screen_width: u32,
+        screen_height: u32,
+        number: usize,
+    ) -> Vec<entities::Asteroid> {
         let mut asteroids: Vec<entities::Asteroid> = Vec::new();
-        for _i in 0..10 {
-            let x = rand::thread_rng().gen_range(0.0, width as f32);
-            let y = rand::thread_rng().gen_range(0.0, (height as f32) / 2.0);
+        for _i in 0..number {
+            let x = rand::thread_rng().gen_range(0.0, screen_width as f32);
+            let y = rand::thread_rng().gen_range(0.0, (screen_height as f32) / 2.0);
+            asteroids.push(entities::Asteroid::new(x, y));
+        }
+        asteroids
+    }
+
+    fn generate_asteroids(&self, number: usize) -> Vec<entities::Asteroid> {
+        let mut asteroids: Vec<entities::Asteroid> = Vec::new();
+        for _i in 0..number {
+            let x = rand::thread_rng().gen_range(0.0, self.width as f32);
+            let y = 0.0;
             asteroids.push(entities::Asteroid::new(x, y));
         }
         asteroids
@@ -46,7 +61,8 @@ impl MainState {
             stars: MainState::generate_stars(width, height),
             ship: entities::Ship::new(30.0, 8.0, height as f32),
             missiles: Vec::new(),
-            asteroids: MainState::generate_asteroids(width, height),
+            asteroids: MainState::generate_initial_asteroids(width, height, 10),
+            asteroids_generated_at: 0,
         };
         Ok(state)
     }
@@ -71,9 +87,12 @@ impl MainState {
     }
 
     fn move_asteroids(&mut self) {
-        for asteroid in self.asteroids.iter_mut() {
-            asteroid.rect.y += 1.0;
-        }
+        self.asteroids
+            .iter_mut()
+            .for_each(|asteroid| asteroid.rect.y += 1.0);
+        let height = self.height;
+        self.asteroids
+            .retain(|asteroid| asteroid.rect.y < height as f32);
     }
 }
 
@@ -130,6 +149,12 @@ impl event::EventHandler for MainState {
         self.move_asteroids();
         for asteroid in self.asteroids.iter() {
             graphics::rectangle(ctx, DrawMode::Fill, asteroid.rect)?;
+        }
+        let ticks = timer::get_ticks(ctx);
+        if ticks - self.asteroids_generated_at > 80 {
+            self.asteroids_generated_at = ticks;
+            let mut new_asteroids = self.generate_asteroids(2);
+            self.asteroids.append(&mut new_asteroids);
         }
 
         graphics::present(ctx);
