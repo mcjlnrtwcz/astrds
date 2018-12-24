@@ -2,6 +2,7 @@ use ggez::*;
 
 pub struct Missile {
     pub rect: graphics::Rect,
+    pub should_be_deleted: bool,
 }
 
 impl Missile {
@@ -13,6 +14,7 @@ impl Missile {
                 10.0,
                 40.0,
             ),
+            should_be_deleted: false,
         }
     }
 }
