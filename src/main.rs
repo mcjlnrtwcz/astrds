@@ -16,6 +16,9 @@ struct MainState {
     missiles: Vec<entities::Missile>,
     asteroids: Vec<entities::Asteroid>,
     asteroids_generated_at: usize,
+    score: u32,
+    score_label: graphics::Text,
+    should_update_score_label: bool,
     game_over: bool,
 }
 
@@ -53,6 +56,11 @@ impl MainState {
         asteroids
     }
 
+    fn get_score_label(ctx: &mut Context, score: u32) -> graphics::Text {
+        let score_string = format!("Score: {}", score);
+        graphics::Text::new(ctx, &score_string, &graphics::Font::default_font().unwrap()).unwrap()
+    }
+
     fn new(ctx: &mut Context) -> GameResult<MainState> {
         let (width, height) = graphics::get_size(ctx);
         let width = width as f32;
@@ -65,6 +73,9 @@ impl MainState {
             missiles: Vec::new(),
             asteroids: MainState::generate_initial_asteroids(width, height, 10),
             asteroids_generated_at: 0,
+            score: 0,
+            score_label: MainState::get_score_label(ctx, 0),
+            should_update_score_label: false,
             game_over: false,
         };
         Ok(state)
@@ -124,11 +135,16 @@ impl MainState {
             self.asteroids.retain(|asteroid| {
                 let touching_bottom = missile.rect.y >= asteroid.rect.y
                     && missile.rect.y <= asteroid.rect.y + asteroid.rect.h;
-                !(touching_bottom && MainState::rects_touching_horizontally(missile.rect, asteroid.rect))
+                !(touching_bottom
+                    && MainState::rects_touching_horizontally(missile.rect, asteroid.rect))
             });
             // Should missile be deleted?
             let asteroids_after = self.asteroids.len();
             missile.should_be_deleted = asteroids_before > asteroids_after;
+            if missile.should_be_deleted {
+                self.score += 1;
+                self.should_update_score_label = true;
+            }
         }
     }
 }
@@ -197,6 +213,14 @@ impl event::EventHandler for MainState {
             for asteroid in self.asteroids.iter() {
                 graphics::rectangle(ctx, DrawMode::Fill, asteroid.rect)?;
             }
+
+            // Draw score label
+            graphics::set_color(ctx, graphics::Color::from_rgb(255, 255, 255))?;
+            if self.should_update_score_label {
+                self.score_label = MainState::get_score_label(ctx, self.score);
+                self.should_update_score_label = false;
+            }
+            graphics::draw(ctx, &self.score_label, Point2::new(0.0, 0.0), 0.0)?;
         }
 
         graphics::present(ctx);
