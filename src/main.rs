@@ -97,29 +97,36 @@ impl MainState {
         self.asteroids.retain(|asteroid| asteroid.rect.y < height);
     }
 
+    fn rects_touching_horizontally(first: graphics::Rect, second: graphics::Rect) -> bool {
+        let first_middle = first.x + first.w / 2.0;
+        let second_middle = second.x + second.w / 2.0;
+        let diff = (first_middle - second_middle).abs();
+        let max_diff = first.w / 2.0 + second.w / 2.0;
+        diff <= max_diff
+    }
+
     fn handle_collisions(&mut self) {
         // Did asteroid hit the ship?
         for asteroid in self.asteroids.iter() {
             let asteroid_bottom = asteroid.rect.y + asteroid.rect.h;
             let ship_bottom = self.ship.rect.y + self.ship.rect.h;
             let touching_top = asteroid_bottom >= self.ship.rect.y && asteroid_bottom < ship_bottom;
-            let ship_xmid =  self.ship.rect.x + self.ship.rect.w / 2.0;
-            let asteroid_xmid = asteroid.rect.x + asteroid.rect.w / 2.0;
-            let diff = (ship_xmid - asteroid_xmid).abs();
-            let max_diff = self.ship.rect.w / 2.0 + asteroid.rect.w / 2.0;
-            if touching_top && diff <= max_diff {
-                self.game_over = true;
+            if touching_top {
+                if MainState::rects_touching_horizontally(self.ship.rect, asteroid.rect) {
+                    self.game_over = true;
+                    return;
+                }
             }
         }
-        // Should missile be deleted?
+        // Did missile hit the asteroid?
         for missile in self.missiles.iter_mut() {
             let asteroids_before = self.asteroids.len();
             self.asteroids.retain(|asteroid| {
-                !((missile.rect.y >= asteroid.rect.y
-                    && missile.rect.y <= asteroid.rect.y + asteroid.rect.h)
-                    && (missile.rect.x >= asteroid.rect.x
-                        && missile.rect.x <= asteroid.rect.x + asteroid.rect.w))
+                let touching_bottom = missile.rect.y >= asteroid.rect.y
+                    && missile.rect.y <= asteroid.rect.y + asteroid.rect.h;
+                !(touching_bottom && MainState::rects_touching_horizontally(missile.rect, asteroid.rect))
             });
+            // Should missile be deleted?
             let asteroids_after = self.asteroids.len();
             missile.should_be_deleted = asteroids_before > asteroids_after;
         }
