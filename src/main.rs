@@ -98,16 +98,20 @@ impl MainState {
     }
 
     fn handle_collisions(&mut self) {
+        // Did asteroid hit the ship?
         for asteroid in self.asteroids.iter() {
             let asteroid_bottom = asteroid.rect.y + asteroid.rect.h;
             let ship_bottom = self.ship.rect.y + self.ship.rect.h;
-            if (asteroid_bottom >= self.ship.rect.y && asteroid_bottom < ship_bottom)
-                && (asteroid.rect.x >= self.ship.rect.x
-                    && asteroid.rect.x <= self.ship.rect.x + self.ship.rect.w)
-            {
+            let touching_top = asteroid_bottom >= self.ship.rect.y && asteroid_bottom < ship_bottom;
+            let ship_xmid =  self.ship.rect.x + self.ship.rect.w / 2.0;
+            let asteroid_xmid = asteroid.rect.x + asteroid.rect.w / 2.0;
+            let diff = (ship_xmid - asteroid_xmid).abs();
+            let max_diff = self.ship.rect.w / 2.0 + asteroid.rect.w / 2.0;
+            if touching_top && diff <= max_diff {
                 self.game_over = true;
             }
         }
+        // Should missile be deleted?
         for missile in self.missiles.iter_mut() {
             let asteroids_before = self.asteroids.len();
             self.asteroids.retain(|asteroid| {
