@@ -25,11 +25,20 @@ pub struct Ship {
 }
 
 impl Ship {
-    pub fn new(size: f32, velocity: f32, screen_height: f32) -> Ship {
+    pub fn new(size: f32, velocity: f32, screen_width: f32, screen_height: f32) -> Ship {
         Ship {
-            rect: graphics::Rect::new(0.0, screen_height - size * 2.0, size, size),
+            rect: graphics::Rect::new(
+                screen_width / 2.0 - size / 2.0,
+                screen_height - size * 2.0,
+                size,
+                size,
+            ),
             velocity: velocity,
         }
+    }
+
+    pub fn reset(&mut self, screen_width: f32) {
+        self.rect.x = screen_width / 2.0 - self.rect.w / 2.0;
     }
 }
 

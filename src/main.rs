@@ -16,10 +16,13 @@ struct MainState {
     missiles: Vec<entities::Missile>,
     asteroids: Vec<entities::Asteroid>,
     asteroids_generated_at: usize,
+    // Score
     score: u32,
     score_label: graphics::Text,
     should_update_score_label: bool,
+    // Game over
     game_over: bool,
+    game_over_label: graphics::Text,
 }
 
 impl MainState {
@@ -35,10 +38,9 @@ impl MainState {
     fn generate_initial_asteroids(
         screen_width: f32,
         screen_height: f32,
-        number: usize,
     ) -> Vec<entities::Asteroid> {
         let mut asteroids: Vec<entities::Asteroid> = Vec::new();
-        for _i in 0..number {
+        for _i in 0..10 {
             let x = rand::thread_rng().gen_range(0.0, screen_width);
             let y = rand::thread_rng().gen_range(0.0, (screen_height) / 2.0);
             asteroids.push(entities::Asteroid::new(x, y));
@@ -69,16 +71,30 @@ impl MainState {
             width: width,
             height: height,
             stars: MainState::generate_initial_stars(width, height),
-            ship: entities::Ship::new(30.0, 8.0, height),
+            ship: entities::Ship::new(30.0, 8.0, width, height),
             missiles: Vec::new(),
-            asteroids: MainState::generate_initial_asteroids(width, height, 10),
+            asteroids: MainState::generate_initial_asteroids(width, height),
             asteroids_generated_at: 0,
             score: 0,
             score_label: MainState::get_score_label(ctx, 0),
             should_update_score_label: false,
             game_over: false,
+            game_over_label: graphics::Text::new(
+                ctx,
+                "Game over! Press SPACE to restart",
+                &graphics::Font::default_font()?,
+            )?,
         };
         Ok(state)
+    }
+
+    fn reset(&mut self) {
+        self.ship.reset(self.width);
+        self.asteroids = MainState::generate_initial_asteroids(self.width, self.height);
+        self.stars = MainState::generate_initial_stars(self.width, self.height);
+        self.score = 0;
+        self.should_update_score_label = true;
+        self.game_over = false;
     }
 
     fn move_stars(&mut self) {
@@ -157,34 +173,43 @@ impl event::EventHandler for MainState {
         _keymod: event::Mod,
         _repeat: bool,
     ) {
-        // Move ship
-        if keycode == event::Keycode::Right && self.ship.rect.x < self.width - self.ship.rect.w {
-            self.ship.rect.x += self.ship.velocity; // TODO: As Ship's method
-        } else if keycode == event::Keycode::Left && self.ship.rect.x > 0.0 {
-            self.ship.rect.x -= self.ship.velocity; // TODO: As Ship's method
-        } else if keycode == event::Keycode::Space {
-            // Shoot
-            self.missiles.push(entities::Missile::new(
-                self.ship.rect.x,
-                self.ship.rect.y,
-                self.ship.rect.w,
-            ));
+        if !self.game_over {
+            // Move ship
+            if keycode == event::Keycode::Right && self.ship.rect.x < self.width - self.ship.rect.w
+            {
+                self.ship.rect.x += self.ship.velocity; // TODO: As Ship's method
+            } else if keycode == event::Keycode::Left && self.ship.rect.x > 0.0 {
+                self.ship.rect.x -= self.ship.velocity; // TODO: As Ship's method
+            } else if keycode == event::Keycode::Space {
+                // Shoot
+                self.missiles.push(entities::Missile::new(
+                    self.ship.rect.x,
+                    self.ship.rect.y,
+                    self.ship.rect.w,
+                ));
+            }
+        } else {
+            if keycode == event::Keycode::Space {
+                self.reset();
+            }
         }
     }
 
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        while timer::check_update_time(ctx, 30) {
-            self.move_stars();
-            self.move_missiles();
-            self.move_asteroids();
-            self.handle_collisions();
+        if !self.game_over {
+            while timer::check_update_time(ctx, 30) {
+                self.move_stars();
+                self.move_missiles();
+                self.move_asteroids();
+                self.handle_collisions();
 
-            // Add new asteroids
-            let ticks = timer::get_ticks(ctx);
-            if ticks - self.asteroids_generated_at > 40 {
-                self.asteroids_generated_at = ticks;
-                let mut new_asteroids = self.generate_asteroids(1);
-                self.asteroids.append(&mut new_asteroids);
+                // Add new asteroids
+                let ticks = timer::get_ticks(ctx);
+                if ticks - self.asteroids_generated_at > 40 {
+                    self.asteroids_generated_at = ticks;
+                    let mut new_asteroids = self.generate_asteroids(1);
+                    self.asteroids.append(&mut new_asteroids);
+                }
             }
         }
         Ok(())
@@ -220,7 +245,11 @@ impl event::EventHandler for MainState {
                 self.score_label = MainState::get_score_label(ctx, self.score);
                 self.should_update_score_label = false;
             }
-            graphics::draw(ctx, &self.score_label, Point2::new(0.0, 0.0), 0.0)?;
+            graphics::draw(ctx, &self.score_label, Point2::new(10.0, 10.0), 0.0)?;
+        } else {
+            let x = self.width / 2.0 - self.game_over_label.width() as f32 / 2.0;
+            let y = self.height / 2.0 - self.game_over_label.height() as f32 / 2.0;
+            graphics::draw(ctx, &self.game_over_label, Point2::new(x, y), 0.0)?;
         }
 
         graphics::present(ctx);
