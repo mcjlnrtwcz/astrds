@@ -2,6 +2,10 @@ extern crate ggez;
 use ggez::graphics::{DrawMode, Point2};
 use ggez::*;
 use rand::Rng;
+use std::env;
+use std::path;
+
+mod assets;
 mod entities;
 
 const BACKGROUND_STARS_NUM: usize = 100;
@@ -9,6 +13,7 @@ const BACKGROUND_STARS_NUM: usize = 100;
 type BackgroundStars = [Point2; BACKGROUND_STARS_NUM];
 
 struct MainState {
+    assets: assets::Assets,
     width: f32,
     height: f32,
     stars: BackgroundStars,
@@ -19,6 +24,7 @@ struct MainState {
     // Score
     score: u32,
     score_label: graphics::Text,
+    score_label_background: graphics::Rect,
     should_update_score_label: bool,
     // Game over
     game_over: bool,
@@ -58,32 +64,40 @@ impl MainState {
         asteroids
     }
 
-    fn get_score_label(ctx: &mut Context, score: u32) -> graphics::Text {
+    fn get_score_label(ctx: &mut Context, font: &graphics::Font, score: u32) -> graphics::Text {
         let score_string = format!("Score: {}", score);
-        graphics::Text::new(ctx, &score_string, &graphics::Font::default_font().unwrap()).unwrap()
+        graphics::Text::new(ctx, &score_string, font).unwrap()
     }
 
     fn new(ctx: &mut Context) -> GameResult<MainState> {
         let (width, height) = graphics::get_size(ctx);
         let width = width as f32;
         let height = height as f32;
+
+        let assets = assets::Assets::new(ctx);
+        let score_label = MainState::get_score_label(ctx, &assets.font, 0);
+        let game_over_label =
+            graphics::Text::new(ctx, "Game over! Press SPACE to restart", &assets.font)?;
+        let score_label_background =
+            graphics::Rect::new(0.0, 0.0, width, assets.font.get_height() as f32 + 20.0);
+
         let state = MainState {
             width: width,
             height: height,
+            assets: assets,
             stars: MainState::generate_initial_stars(width, height),
             ship: entities::Ship::new(30.0, 8.0, width, height),
             missiles: Vec::new(),
             asteroids: MainState::generate_initial_asteroids(width, height),
             asteroids_generated_at: 0,
+            // Score
             score: 0,
-            score_label: MainState::get_score_label(ctx, 0),
+            score_label: score_label,
+            score_label_background: score_label_background,
             should_update_score_label: false,
+            // Game over
             game_over: false,
-            game_over_label: graphics::Text::new(
-                ctx,
-                "Game over! Press SPACE to restart",
-                &graphics::Font::default_font()?,
-            )?,
+            game_over_label: game_over_label,
         };
         Ok(state)
     }
@@ -241,12 +255,15 @@ impl event::EventHandler for MainState {
                 graphics::rectangle(ctx, DrawMode::Fill, asteroid.rect)?;
             }
 
+            // Draw score label background
+            graphics::set_color(ctx, graphics::Color::from_rgba(33, 33, 33, 191))?;
+            graphics::rectangle(ctx, DrawMode::Fill, self.score_label_background)?;
             // Draw score label
-            graphics::set_color(ctx, graphics::Color::from_rgb(255, 255, 255))?;
             if self.should_update_score_label {
-                self.score_label = MainState::get_score_label(ctx, self.score);
+                self.score_label = MainState::get_score_label(ctx, &self.assets.font, self.score);
                 self.should_update_score_label = false;
             }
+            graphics::set_color(ctx, graphics::Color::from_rgb(255, 255, 255))?;
             graphics::draw(ctx, &self.score_label, Point2::new(10.0, 10.0), 0.0)?;
         } else {
             let x = self.width / 2.0 - self.game_over_label.width() as f32 / 2.0;
@@ -261,10 +278,17 @@ impl event::EventHandler for MainState {
 }
 
 pub fn main() {
-    let mut config = conf::Conf::new();
-    config.window_setup.title = "astrds".to_owned();
+    let mut cb = ContextBuilder::new("astrds", "mcjlnrtwcz")
+        .window_setup(conf::WindowSetup::default().title("astrds"))
+        .window_mode(conf::WindowMode::default());
 
-    let ctx = &mut Context::load_from_conf("astrds", "mcjlnrtwcz", config).unwrap();
+    if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        let mut path = path::PathBuf::from(manifest_dir);
+        path.push("assets");
+        cb = cb.add_resource_path(path);
+    }
+
+    let ctx = &mut cb.build().unwrap();
     graphics::set_background_color(ctx, graphics::Color::from_rgb(0, 0, 0));
     let state = &mut MainState::new(ctx).unwrap();
     event::run(ctx, state).unwrap();
