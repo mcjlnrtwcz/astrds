@@ -40,6 +40,18 @@ impl Ship {
     pub fn reset(&mut self, screen_width: f32) {
         self.rect.x = screen_width / 2.0 - self.rect.w / 2.0;
     }
+
+    pub fn move_left(&mut self) {
+        if self.rect.x - self.velocity >= 0.0 {
+            self.rect.x -= self.velocity;
+        }
+    }
+
+    pub fn move_right(&mut self, screen_width: f32) {
+        if self.rect.x <= screen_width - self.rect.w - self.velocity {
+            self.rect.x += self.velocity;
+        }
+    }
 }
 
 pub struct Asteroid {

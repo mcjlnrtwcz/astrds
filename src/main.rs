@@ -92,6 +92,7 @@ impl MainState {
         self.ship.reset(self.width);
         self.asteroids = MainState::generate_initial_asteroids(self.width, self.height);
         self.stars = MainState::generate_initial_stars(self.width, self.height);
+        self.missiles.clear();
         self.score = 0;
         self.should_update_score_label = true;
         self.game_over = false;
@@ -163,6 +164,14 @@ impl MainState {
             }
         }
     }
+
+    fn shoot(&mut self) {
+        self.missiles.push(entities::Missile::new(
+            self.ship.rect.x,
+            self.ship.rect.y,
+            self.ship.rect.w,
+        ));
+    }
 }
 
 impl event::EventHandler for MainState {
@@ -174,23 +183,16 @@ impl event::EventHandler for MainState {
         _repeat: bool,
     ) {
         if !self.game_over {
-            // Move ship
-            if keycode == event::Keycode::Right && self.ship.rect.x < self.width - self.ship.rect.w
-            {
-                self.ship.rect.x += self.ship.velocity; // TODO: As Ship's method
-            } else if keycode == event::Keycode::Left && self.ship.rect.x > 0.0 {
-                self.ship.rect.x -= self.ship.velocity; // TODO: As Ship's method
-            } else if keycode == event::Keycode::Space {
-                // Shoot
-                self.missiles.push(entities::Missile::new(
-                    self.ship.rect.x,
-                    self.ship.rect.y,
-                    self.ship.rect.w,
-                ));
+            match keycode {
+                event::Keycode::Left => self.ship.move_left(),
+                event::Keycode::Right => self.ship.move_right(self.width),
+                event::Keycode::Space => self.shoot(),
+                _ => return,
             }
         } else {
-            if keycode == event::Keycode::Space {
-                self.reset();
+            match keycode {
+                event::Keycode::Space => self.reset(),
+                _ => return,
             }
         }
     }
