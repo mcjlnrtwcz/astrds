@@ -7,8 +7,10 @@ use std::path;
 
 mod assets;
 mod entities;
+mod utilities;
 
 const BACKGROUND_STARS_NUM: usize = 100;
+const MARGIN: f32 = 10.0;
 
 type BackgroundStars = [Point2; BACKGROUND_STARS_NUM];
 
@@ -26,6 +28,8 @@ struct MainState {
     score_label: graphics::Text,
     score_label_background: graphics::Rect,
     should_update_score_label: bool,
+    high_score: u32,
+    high_score_label: graphics::Text,
     // Game over
     game_over: bool,
     game_over_label: graphics::Text,
@@ -69,6 +73,15 @@ impl MainState {
         graphics::Text::new(ctx, &score_string, font).unwrap()
     }
 
+    fn get_high_score_label(
+        ctx: &mut Context,
+        font: &graphics::Font,
+        score: u32,
+    ) -> graphics::Text {
+        let score_string = format!("High score: {}", score);
+        graphics::Text::new(ctx, &score_string, font).unwrap()
+    }
+
     fn new(ctx: &mut Context) -> GameResult<MainState> {
         let (width, height) = graphics::get_size(ctx);
         let width = width as f32;
@@ -76,6 +89,7 @@ impl MainState {
 
         let assets = assets::Assets::new(ctx);
         let score_label = MainState::get_score_label(ctx, &assets.font, 0);
+        let high_score_label = MainState::get_high_score_label(ctx, &assets.font, 0);
         let game_over_label =
             graphics::Text::new(ctx, "Game over! Press SPACE to restart", &assets.font)?;
         let score_label_background =
@@ -95,6 +109,8 @@ impl MainState {
             score_label: score_label,
             score_label_background: score_label_background,
             should_update_score_label: false,
+            high_score: 0,
+            high_score_label: high_score_label,
             // Game over
             game_over: false,
             game_over_label: game_over_label,
@@ -102,13 +118,17 @@ impl MainState {
         Ok(state)
     }
 
-    fn reset(&mut self) {
+    fn reset(&mut self, ctx: &mut Context) {
         self.ship.reset(self.width);
         self.asteroids = MainState::generate_initial_asteroids(self.width, self.height);
         self.stars = MainState::generate_initial_stars(self.width, self.height);
         self.missiles.clear();
+
         self.score = 0;
-        self.should_update_score_label = true;
+        self.score_label = MainState::get_score_label(ctx, &self.assets.font, self.score);
+        self.high_score_label =
+            MainState::get_high_score_label(ctx, &self.assets.font, self.high_score);
+
         self.game_over = false;
     }
 
@@ -139,14 +159,6 @@ impl MainState {
         self.asteroids.retain(|asteroid| asteroid.rect.y < height);
     }
 
-    fn rects_touching_horizontally(first: graphics::Rect, second: graphics::Rect) -> bool {
-        let first_middle = first.x + first.w / 2.0;
-        let second_middle = second.x + second.w / 2.0;
-        let diff = (first_middle - second_middle).abs();
-        let max_diff = first.w / 2.0 + second.w / 2.0;
-        diff <= max_diff
-    }
-
     fn handle_collisions(&mut self) {
         // Did asteroid hit the ship?
         for asteroid in self.asteroids.iter() {
@@ -154,8 +166,11 @@ impl MainState {
             let ship_bottom = self.ship.rect.y + self.ship.rect.h;
             let touching_top = asteroid_bottom >= self.ship.rect.y && asteroid_bottom < ship_bottom;
             if touching_top {
-                if MainState::rects_touching_horizontally(self.ship.rect, asteroid.rect) {
+                if utilities::rects_touching_horizontally(self.ship.rect, asteroid.rect) {
                     self.game_over = true;
+                    if self.score > self.high_score {
+                        self.high_score = self.score;
+                    }
                     return;
                 }
             }
@@ -167,7 +182,7 @@ impl MainState {
                 let touching_bottom = missile.rect.y >= asteroid.rect.y
                     && missile.rect.y <= asteroid.rect.y + asteroid.rect.h;
                 !(touching_bottom
-                    && MainState::rects_touching_horizontally(missile.rect, asteroid.rect))
+                    && utilities::rects_touching_horizontally(missile.rect, asteroid.rect))
             });
             // Should missile be deleted?
             let asteroids_after = self.asteroids.len();
@@ -191,7 +206,7 @@ impl MainState {
 impl event::EventHandler for MainState {
     fn key_down_event(
         &mut self,
-        _ctx: &mut Context,
+        ctx: &mut Context,
         keycode: event::Keycode,
         _keymod: event::Mod,
         _repeat: bool,
@@ -205,7 +220,7 @@ impl event::EventHandler for MainState {
             }
         } else {
             match keycode {
-                event::Keycode::Space => self.reset(),
+                event::Keycode::Space => self.reset(ctx),
                 _ => return,
             }
         }
@@ -264,10 +279,22 @@ impl event::EventHandler for MainState {
                 self.should_update_score_label = false;
             }
             graphics::set_color(ctx, graphics::Color::from_rgb(255, 255, 255))?;
-            graphics::draw(ctx, &self.score_label, Point2::new(10.0, 10.0), 0.0)?;
+            graphics::draw(ctx, &self.score_label, Point2::new(MARGIN, MARGIN), 0.0)?;
+            // Draw high score label
+            graphics::set_color(ctx, graphics::Color::from_rgb(189, 189, 189))?;
+            graphics::draw(
+                ctx,
+                &self.high_score_label,
+                Point2::new(
+                    self.width - self.high_score_label.width() as f32 - MARGIN,
+                    MARGIN,
+                ),
+                0.0,
+            )?;
         } else {
             let x = self.width / 2.0 - self.game_over_label.width() as f32 / 2.0;
             let y = self.height / 2.0 - self.game_over_label.height() as f32 / 2.0;
+            graphics::set_color(ctx, graphics::Color::from_rgb(255, 255, 255))?;
             graphics::draw(ctx, &self.game_over_label, Point2::new(x, y), 0.0)?;
         }
 
