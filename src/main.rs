@@ -1,4 +1,5 @@
 extern crate ggez;
+
 use ggez::graphics::{DrawMode, Point2};
 use ggez::*;
 use rand::Rng;
@@ -6,6 +7,7 @@ use std::env;
 use std::path;
 
 mod assets;
+mod colours;
 mod entities;
 mod utilities;
 
@@ -15,9 +17,10 @@ const MARGIN: f32 = 10.0;
 type BackgroundStars = [Point2; BACKGROUND_STARS_NUM];
 
 struct MainState {
-    assets: assets::Assets,
     width: f32,
     height: f32,
+    assets: assets::Assets,
+    colours: colours::Colours,
     stars: BackgroundStars,
     ship: entities::Ship,
     missiles: Vec<entities::Missile>,
@@ -99,6 +102,7 @@ impl MainState {
             width: width,
             height: height,
             assets: assets,
+            colours: colours::Colours::new(),
             stars: MainState::generate_initial_stars(width, height),
             ship: entities::Ship::new(30.0, 8.0, width, height),
             missiles: Vec::new(),
@@ -251,37 +255,37 @@ impl event::EventHandler for MainState {
 
         if !self.game_over {
             // Draw stars
-            graphics::set_color(ctx, graphics::Color::from_rgb(255, 255, 255))?;
+            graphics::set_color(ctx, self.colours.star)?;
             graphics::points(ctx, &self.stars, 1.0)?;
 
             // Draw ship
-            graphics::set_color(ctx, graphics::Color::from_rgb(236, 239, 241))?;
+            graphics::set_color(ctx, self.colours.ship)?;
             graphics::rectangle(ctx, DrawMode::Fill, self.ship.rect)?;
 
             // Draw missiles
-            graphics::set_color(ctx, graphics::Color::from_rgb(216, 27, 96))?;
+            graphics::set_color(ctx, self.colours.missile)?;
             for missile in self.missiles.iter() {
                 graphics::rectangle(ctx, DrawMode::Fill, missile.rect)?;
             }
 
             // Draw asteroids
-            graphics::set_color(ctx, graphics::Color::from_rgb(78, 52, 46))?;
+            graphics::set_color(ctx, self.colours.asteroid)?;
             for asteroid in self.asteroids.iter() {
                 graphics::rectangle(ctx, DrawMode::Fill, asteroid.rect)?;
             }
 
             // Draw score label background
-            graphics::set_color(ctx, graphics::Color::from_rgba(33, 33, 33, 191))?;
+            graphics::set_color(ctx, self.colours.text_background)?;
             graphics::rectangle(ctx, DrawMode::Fill, self.score_label_background)?;
             // Draw score label
             if self.should_update_score_label {
                 self.score_label = MainState::get_score_label(ctx, &self.assets.font, self.score);
                 self.should_update_score_label = false;
             }
-            graphics::set_color(ctx, graphics::Color::from_rgb(255, 255, 255))?;
+            graphics::set_color(ctx, self.colours.primary_text)?;
             graphics::draw(ctx, &self.score_label, Point2::new(MARGIN, MARGIN), 0.0)?;
             // Draw high score label
-            graphics::set_color(ctx, graphics::Color::from_rgb(189, 189, 189))?;
+            graphics::set_color(ctx, self.colours.secondary_text)?;
             graphics::draw(
                 ctx,
                 &self.high_score_label,
@@ -294,7 +298,7 @@ impl event::EventHandler for MainState {
         } else {
             let x = self.width / 2.0 - self.game_over_label.width() as f32 / 2.0;
             let y = self.height / 2.0 - self.game_over_label.height() as f32 / 2.0;
-            graphics::set_color(ctx, graphics::Color::from_rgb(255, 255, 255))?;
+            graphics::set_color(ctx, self.colours.primary_text)?;
             graphics::draw(ctx, &self.game_over_label, Point2::new(x, y), 0.0)?;
         }
 
